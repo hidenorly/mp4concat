@@ -22,20 +22,26 @@ require_relative 'FileUtil'
 
 class Mp4Concat
 	def self.concat(srcPaths, dstPath)
-		escapedSrcPaths=[]
-		srcPaths.sort!
-		srcPaths.each do |aSrc|
-			escapedSrcPaths << Shellwords.escape(aSrc)
-		end
-		exec_cmd = "ffmpeg -i \"concat:#{escapedSrcPaths.join("|")}\" -c copy #{Shellwords.escape(dstPath)}"
 		srcDir = FileUtil.getDirectoryFromPath(srcPaths[0])
-		ExecUtil.execCmd(exec_cmd, srcDir)
+		_tmpList = "#{srcDir}/.tmpList.lst"
+		srcPaths.sort!
+		escapedSrcPaths=[]
+		srcPaths.each do |aSrc|
+			aSrc = aSrc.gsub(srcDir+"/", "")
+			escapedSrcPaths << "file \'#{Shellwords.escape(aSrc)}\'"
+		end
+		FileUtil.writeFile(_tmpList, escapedSrcPaths)
+		if !escapedSrcPaths.empty? then
+			exec_cmd = "ffmpeg -f concat -i #{Shellwords.escape(_tmpList)} -c copy #{Shellwords.escape(dstPath)}"
+			ExecUtil.execCmd(exec_cmd, srcDir)
+		end
+		FileUtils.rm_f(_tmpList)
 	end
 
 	def self.getCandidate(srcPath, scanFilter, numOfConcatFiles)
 		path = File.expand_path(srcPath)
 		files = []
-		FileUtil.iteratePath( srcPath, scanFilter, files, false, false, 1)
+		FileUtil.iteratePath( path, scanFilter, files, false, false, 1)
 		files = files.sort{|a,b| b<=>a}
 		files = files.slice(0, numOfConcatFiles) if numOfConcatFiles!=0
 		return files
@@ -79,8 +85,9 @@ class Mp4Concat
 		if commonPart!="" then
 			result = result.gsub(commonPart, "")
 			result = result.gsub("__", "_")
-			result = "#{commonPart}_#{result}\.mp4"
+			result = "#{commonPart}_#{result}"
 		end
+		result="#{result}.mp4" if !result.end_with?(".mp4")
 		return result
 	end
 
