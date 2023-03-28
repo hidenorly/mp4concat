@@ -240,6 +240,26 @@ class FileUtil
 			end
 		end
 	end
+
+	def self.isFileLocked(path)
+		result = false
+
+		if File.exist?(path) then
+			begin
+				File.open(path, 'a') do |f|
+					if f.flock(File::LOCK_EX | File::LOCK_NB) then
+						f.flock(File::LOCK_UN)
+					else
+						result = true
+					end
+				end
+			rescue =>ex
+				result = true
+			end
+		end
+
+		return result
+	end
 end
 
 class Stream

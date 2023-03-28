@@ -107,4 +107,27 @@ class ExecUtil
 
 		return result
 	end
+
+	def self.getExecResultEachLineWithInputs(command, execPath=".", inputs=[], enableStderr=true, enableStrip=true, enableMultiLine=true)
+		result = []
+
+		if File.directory?(execPath) then
+			exec_cmd = command
+			exec_cmd += " 2>&1" if enableStderr && !exec_cmd.include?(" 2>")
+
+			IO.popen(["bash", "-c", exec_cmd], "r", :chdir=>execPath) {|io|
+				inputs.each do |aLine|
+					io.puts(aLine)
+				end
+				while !io.eof? do
+					aLine = StrUtil.ensureUtf8(io.readline)
+					aLine.strip! if enableStrip
+					result << aLine
+				end
+				io.close()
+			}
+		end
+
+		return result
+	end
 end

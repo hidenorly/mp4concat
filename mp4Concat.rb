@@ -75,11 +75,16 @@ class Mp4Concat
 	end
 
 
-	def self.getConcatFilename(srcPaths)
+	def self.getConcatFilename(srcPaths, isFirstLast=false)
 		result = ""
-		srcPaths.each do |aSrc|
-			filename = FileUtil.getFilenameFromPathWithoutExt(aSrc)
-			result = result + (result.empty? ? "" : "_") + filename
+		if isFirstLast then
+			result = FileUtil.getFilenameFromPathWithoutExt(srcPaths.first)
+			result = result + "_" + FileUtil.getFilenameFromPathWithoutExt(srcPaths.last) if srcPaths.first!=srcPaths.last
+		else
+			srcPaths.each do |aSrc|
+				filename = FileUtil.getFilenameFromPathWithoutExt(aSrc)
+				result = result + (result.empty? ? "" : "_") + filename
+			end
 		end
 		commonPart = getCommonFilenamePart(srcPaths)
 		if commonPart!="" then
@@ -91,20 +96,28 @@ class Mp4Concat
 		return result
 	end
 
-	def self.concatEnumeratedMp4(srcPath, scanFilter, numOfConcatFiles, dstPath, isDeleteAfterConcat)
+
+	def self.concatEnumeratedMp4(srcPath, scanFilter, numOfConcatFiles, dstPath, filenameMode, isDeleteAfterConcat)
+		# get concat files
 		srcPaths = getCandidate( srcPath, scanFilter, numOfConcatFiles )
+
+		# ensure output path
 		dstPath = File.expand_path(dstPath)
 		dstDir = FileUtil.getDirectoryFromPath( dstPath )
 		FileUtil.ensureDirectory( dstDir ) if dstDir != dstPath
 		dstFilename = FileUtil.getFilenameFromPath( dstPath )
+
+		# generate concat filename if no filename specified
 		if File.directory?( dstDir+"/"+dstFilename ) then
 			# dstPath is directory specified then need to generate output filename
-			filename = getConcatFilename(srcPaths)
+			filename = getConcatFilename(srcPaths, filenameMode=="firstlast")
 			dstPath = dstDir + "/" + dstFilename + "/" + filename
 			dstFilename = filename
 		end
+
 		# do concat
 		concat(srcPaths, dstPath)
+
 		# delete files after concat
 		if File.exist?(dstPath) && File.size(dstPath)!=0 && isDeleteAfterConcat then
 			srcPaths.each do |aSrc|
@@ -116,10 +129,11 @@ end
 
 options = {
 	:sourcePath => ".",
-	:filter => "\.mp4$",
+	:filter => "\\.mp4$",
 	:sort => "reverse",
 	:numOfConcatFiles => 0,
 	:outputPath => "concat.mp4",
+	:filenameMode => "all",
 	:deleteAfterConcat => false
 }
 
@@ -146,9 +160,13 @@ opt_parser = OptionParser.new do |opts|
 		options[:outputPath] = outputPath.to_s
 	end
 
+	opts.on("-f", "--filenameMode=", "Set filename mode \"all\" or \"firstlast\" for automated concat filename (default:#{options[:filenameMode]})") do |filenameMode|
+		options[:filenameMode] = filenameMode.to_s.downcase
+	end
+
 	opts.on("-d", "--deleteAfterConcat", "Set if you want to delete the source files after concat (default:#{options[:deleteAfterConcat]})") do
 		options[:deleteAfterConcat] = true
 	end
 end.parse!
 
-Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:numOfConcatFiles], options[:outputPath], options[:deleteAfterConcat] )
+Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:numOfConcatFiles], options[:outputPath], options[:filenameMode], options[:deleteAfterConcat] )
