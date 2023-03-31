@@ -38,11 +38,18 @@ class Mp4Concat
 		FileUtils.rm_f(_tmpList)
 	end
 
-	def self.getCandidate(srcPath, scanFilter, numOfConcatFiles)
+	def self.getCandidate(srcPath, scanFilter, numOfConcatFiles, isReverseSort=false, isSkipLockedFiles=false)
 		path = File.expand_path(srcPath)
 		files = []
 		FileUtil.iteratePath( path, scanFilter, files, false, false, 1)
-		files = files.sort{|a,b| b<=>a}
+		if isSkipLockedFiles then
+			_files = []
+			files.each do |aFile|
+				_files << aFile if !FileUtil.isFileLocked(aFile)
+			end
+			files = _files
+		end
+		files = isReverseSort ? files.sort{|a,b| b<=>a} : files.sort{|a,b| a<=>b}
 		files = files.slice(0, numOfConcatFiles) if numOfConcatFiles!=0
 		return files
 	end
@@ -97,9 +104,9 @@ class Mp4Concat
 	end
 
 
-	def self.concatEnumeratedMp4(srcPath, scanFilter, additionalOptions, numOfConcatFiles, dstPath, filenameMode, isDeleteAfterConcat)
+	def self.concatEnumeratedMp4(srcPath, scanFilter, sortMode, numOfConcatFiles, avoidLockedFiles, dstPath, filenameMode, additionalOptions, isDeleteAfterConcat)
 		# get concat files
-		srcPaths = getCandidate( srcPath, scanFilter, numOfConcatFiles )
+		srcPaths = getCandidate( srcPath, scanFilter, numOfConcatFiles, sortMode=="rerverse", avoidLockedFiles )
 
 		# ensure output path
 		dstPath = File.expand_path(dstPath)
@@ -130,6 +137,7 @@ end
 options = {
 	:sourcePath => ".",
 	:filter => "\\.mp4$",
+	:avoidLockedFiles => false,
 	:sort => "reverse",
 	:numOfConcatFiles => 0,
 	:outputPath => "concat.mp4",
@@ -149,6 +157,10 @@ opt_parser = OptionParser.new do |opts|
 		options[:filter] = filter.to_s
 	end
 
+	opts.on("-l", "--avoidLockedFiles", "Set if you want to skip locked files (default:#{options[:avoidLockedFiles]})") do
+		options[:avoidLockedFiles] = true
+	end
+
 	opts.on("-s", "--sort=", "Set sort mode normal or revrese (default:#{options[:sort]})") do |sort|
 		options[:sort] = sort.to_s
 	end
@@ -157,7 +169,7 @@ opt_parser = OptionParser.new do |opts|
 		options[:numOfConcatFiles] = numOfConcatFiles.to_i
 	end
 
-	opts.on("-o", "--outputPath=", "Set output path (default:#{options[:outputPath]})") do |outputPath|
+	opts.on("-o", "--outputPath=", "Set output path. Note that if directory is specified, filename is automatically generated (default:#{options[:outputPath]})") do |outputPath|
 		options[:outputPath] = outputPath.to_s
 	end
 
@@ -174,4 +186,4 @@ opt_parser = OptionParser.new do |opts|
 	end
 end.parse!
 
-Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:numOfConcatFiles], options[:additionalOptions], options[:outputPath], options[:filenameMode], options[:deleteAfterConcat] )
+Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:sort], options[:numOfConcatFiles], options[:avoidLockedFiles], options[:outputPath], options[:filenameMode], options[:additionalOptions], options[:deleteAfterConcat] )
