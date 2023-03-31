@@ -21,7 +21,7 @@ require_relative 'ExecUtil'
 require_relative 'FileUtil'
 
 class Mp4Concat
-	def self.concat(srcPaths, dstPath)
+	def self.concat(srcPaths, dstPath, additionalOptions)
 		srcDir = FileUtil.getDirectoryFromPath(srcPaths[0])
 		_tmpList = "#{srcDir}/.tmpList.lst"
 		srcPaths.sort!
@@ -32,7 +32,7 @@ class Mp4Concat
 		end
 		FileUtil.writeFile(_tmpList, escapedSrcPaths)
 		if !escapedSrcPaths.empty? then
-			exec_cmd = "ffmpeg -f concat -i #{Shellwords.escape(_tmpList)} -c copy #{Shellwords.escape(dstPath)}"
+			exec_cmd = "ffmpeg -f concat -i #{Shellwords.escape(_tmpList)} -c copy #{Shellwords.escape(dstPath)} #{additionalOptions}"
 			ExecUtil.execCmd(exec_cmd, srcDir)
 		end
 		FileUtils.rm_f(_tmpList)
@@ -97,7 +97,7 @@ class Mp4Concat
 	end
 
 
-	def self.concatEnumeratedMp4(srcPath, scanFilter, numOfConcatFiles, dstPath, filenameMode, isDeleteAfterConcat)
+	def self.concatEnumeratedMp4(srcPath, scanFilter, additionalOptions, numOfConcatFiles, dstPath, filenameMode, isDeleteAfterConcat)
 		# get concat files
 		srcPaths = getCandidate( srcPath, scanFilter, numOfConcatFiles )
 
@@ -116,7 +116,7 @@ class Mp4Concat
 		end
 
 		# do concat
-		concat(srcPaths, dstPath)
+		concat(srcPaths, dstPath, additionalOptions)
 
 		# delete files after concat
 		if File.exist?(dstPath) && File.size(dstPath)!=0 && isDeleteAfterConcat then
@@ -134,6 +134,7 @@ options = {
 	:numOfConcatFiles => 0,
 	:outputPath => "concat.mp4",
 	:filenameMode => "all",
+	:additionalOptions => nil,
 	:deleteAfterConcat => false
 }
 
@@ -160,8 +161,12 @@ opt_parser = OptionParser.new do |opts|
 		options[:outputPath] = outputPath.to_s
 	end
 
-	opts.on("-f", "--filenameMode=", "Set filename mode \"all\" or \"firstlast\" for automated concat filename (default:#{options[:filenameMode]})") do |filenameMode|
+	opts.on("-m", "--filenameMode=", "Set filename mode \"all\" or \"firstlast\" for automated concat filename (default:#{options[:filenameMode]})") do |filenameMode|
 		options[:filenameMode] = filenameMode.to_s.downcase
+	end
+
+	opts.on("-a", "--additionalOptions=", "Set additional options for ffmpeg (default:#{options[:additionalOptions]})") do |additionalOptions|
+		options[:additionalOptions] = additionalOptions
 	end
 
 	opts.on("-d", "--deleteAfterConcat", "Set if you want to delete the source files after concat (default:#{options[:deleteAfterConcat]})") do
@@ -169,4 +174,4 @@ opt_parser = OptionParser.new do |opts|
 	end
 end.parse!
 
-Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:numOfConcatFiles], options[:outputPath], options[:filenameMode], options[:deleteAfterConcat] )
+Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:numOfConcatFiles], options[:additionalOptions], options[:outputPath], options[:filenameMode], options[:deleteAfterConcat] )
