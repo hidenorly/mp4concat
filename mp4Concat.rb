@@ -186,4 +186,47 @@ opt_parser = OptionParser.new do |opts|
 	end
 end.parse!
 
-Mp4Concat.concatEnumeratedMp4( options[:sourcePath], options[:filter], options[:sort], options[:numOfConcatFiles], options[:avoidLockedFiles], options[:outputPath], options[:filenameMode], options[:additionalOptions], options[:deleteAfterConcat] )
+srcPath = options[:sourcePath]
+scanFilter = options[:filter]
+sortMode = options[:sort]
+numOfConcatFiles = options[:numOfConcatFiles]
+avoidLockedFiles = options[:avoidLockedFiles]
+dstPath = options[:outputPath]
+filenameMode = options[:filenameMode]
+additionalOptions = options[:additionalOptions]
+isDeleteAfterConcat = options[:deleteAfterConcat]
+
+# get concat files
+srcPaths = []
+if srcPath.include?(",") then
+	paths = srcPath.split(",")
+	paths.each do |aPath|
+		srcPaths << File.expand_path(aPath)
+	end
+else
+	srcPaths = Mp4Concat.getCandidate( srcPath, scanFilter, numOfConcatFiles, sortMode=="rerverse", avoidLockedFiles )
+end
+
+# ensure output path
+dstPath = File.expand_path(dstPath)
+dstDir = FileUtil.getDirectoryFromPath( dstPath )
+FileUtil.ensureDirectory( dstDir ) if dstDir != dstPath
+dstFilename = FileUtil.getFilenameFromPath( dstPath )
+
+# generate concat filename if no filename specified
+if File.directory?( dstDir+"/"+dstFilename ) then
+	# dstPath is directory specified then need to generate output filename
+	filename = Mp4Concat.getConcatFilename(srcPaths, filenameMode=="firstlast")
+	dstPath = dstDir + "/" + dstFilename + "/" + filename
+	dstFilename = filename
+end
+
+# do concat
+Mp4Concat.concat(srcPaths, dstPath, additionalOptions)
+
+# delete files after concat
+if File.exist?(dstPath) && File.size(dstPath)!=0 && isDeleteAfterConcat then
+	srcPaths.each do |aSrc|
+		FileUtils.rm_f(aSrc)
+	end
+end
